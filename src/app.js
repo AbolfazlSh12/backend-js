@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import { parse } from "url";
-import usersHandler from "./api/users";
-import tasksHandler from "./api/tasks";
+import usersHandler from "./api/users.js";
+import tasksHandler from "./api/tasks.js";
 
 const PORT = 3000;
 

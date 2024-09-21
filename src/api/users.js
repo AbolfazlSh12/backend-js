@@ -1,10 +1,10 @@
-import { registerUser, loginUser, getUserProfile } from "../module/users";
-import { postDataHandler } from "./postDataHandler.js";
 import jwt from "jsonwebtoken";
+import { registerUser, loginUser, getUserProfile } from "../module/users.js";
+import { postDataHandler } from "../postDataHandler.js";
 
 const JWT_SECRET = "secret_task_manager";
 
-export const routeUsersApis = async (req, res) => {
+const routeUsersApis = async (req, res) => {
   let body = "";
   if (req.method === "POST") {
     body = await postDataHandler(req);
@@ -44,3 +44,5 @@ export const routeUsersApis = async (req, res) => {
     sendResponse({ message: "Not Found" }, 404);
   }
 };
+
+export default routeUsersApis;

@@ -5,10 +5,10 @@ import {
   updateTask,
   assignTask,
   unassignTask,
-} from "./tasks.js";
-import { postDataHandler } from "./postDataHandler.js";
+} from "../module/tasks.js";
+import { postDataHandler } from "../postDataHandler.js";
 
-export const routeTasksApis = async (req, res) => {
+const routeTasksApis = async (req, res) => {
   let body = "";
   if (req.method === "POST" || req.method === "DELETE") {
     body = await postDataHandler(req);
@@ -57,3 +57,5 @@ export const routeTasksApis = async (req, res) => {
     sendResponse({ message: "Not Found" }, 404);
   }
 };
+
+export default routeTasksApis;
