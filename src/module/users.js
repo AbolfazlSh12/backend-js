@@ -1,25 +1,39 @@
+import path from "path";
+import * as uuid from "uuid";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import fs from "fs";
-import * as uuid from "uuid";
+import { fileURLToPath } from "url";
+import { sendEmail } from "./sendEmail.js";
+import { promises as fsPromises } from "fs";
 
-const JWT_SECRET = "secret_task_manager";
+const secretKey = process.env.SECRET_KEY;
 
-const getUsers = () => {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const usersFilePath = path.join(__dirname, "../../data/users.json");
+
+export const getUsers = async () => {
   try {
-    const data = fs.readFileSync("/data/users.json", "utf8");
-    return JSON.parse(data);
+    await fsPromises.access(usersFilePath);
   } catch (err) {
+    await fsPromises.writeFile(usersFilePath, "[]");
+  }
+
+  try {
+    const data = await fsPromises.readFile(usersFilePath, "utf8");
+    return data ? JSON.parse(data) : [];
+  } catch (err) {
+    console.error("Error parsing JSON:", err);
     return [];
   }
 };
 
-const saveUsers = (users) => {
-  fs.writeFileSync("/data/users.json", JSON.stringify(users, null, 2));
+const saveUsers = async (users) => {
+  await fsPromises.writeFile(usersFilePath, JSON.stringify(users, null, 2));
 };
 
-export const registerUser = async (username, password) => {
-  const users = getUsers();
+export const registerUser = async (username, email, password) => {
+  const users = await getUsers();
 
   const existingUser = users.find((user) => user.username === username);
   if (existingUser) {
@@ -28,24 +42,49 @@ export const registerUser = async (username, password) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  const registerCode = Math.floor(100000 + Math.random() * 900000);
+
   const newUser = {
     id: uuid.v4(),
     username,
     password: hashedPassword,
+    registerCode,
+    active: false,
   };
 
   users.push(newUser);
-  saveUsers(users);
+  await saveUsers(users);
+
+  await sendEmail({
+    to: email,
+    subject: "Register To My App !",
+    text: registerCode,
+  });
 
   return {
     status: 201,
-    message: "User registered successfully",
-    user: newUser,
+    message:
+      "User registered successfully. Please check your email to verify your account.",
   };
 };
 
+export const verifyEmail = async (token) => {
+  const users = await getUsers();
+
+  const user = users.find((user) => user.verificationToken === token);
+  if (!user) {
+    return { status: 400, error: "Invalid or expired token" };
+  }
+
+  user.verified = true;
+  user.verificationToken = null; // Remove the token once verified
+  saveUsers(users);
+
+  return { status: 200, message: "Email successfully verified" };
+};
+
 export const loginUser = async (username, password) => {
-  const users = getUsers();
+  const users = await getUsers();
 
   const user = users.find((user) => user.username === username);
   if (!user) {
@@ -57,15 +96,15 @@ export const loginUser = async (username, password) => {
     return res.status(400).json({ error: "Invalid username or password" });
   }
 
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
+  const token = jwt.sign({ id: user.id, username: user.username }, secretKey, {
     expiresIn: "1h",
   });
 
   res.json({ token });
 };
 
-export const getUserProfile = (id) => {
-  const users = getUsers();
+export const getUserProfile = async (id) => {
+  const users = await getUsers();
 
   const user = users.find((user) => user.id === id);
   if (!user) {
@@ -76,16 +115,3 @@ export const getUserProfile = (id) => {
 
   return { status: 200, message: "User successfully found", user: userProfile };
 };
-
-/* export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (token == null) return res.sendStatus(401);
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-}; */

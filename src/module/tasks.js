@@ -34,7 +34,7 @@ export const updateTask = async (id, updatedTask) => {
 export const assignTask = async (taskId, username) => {
   const tasks = await getTasks();
   const newTasks = tasks.map((task) =>
-    task.id === taskId ? { ...task, assignedTo: username } : task
+    task.id === taskId ? { ...task, assignee: username } : task
   );
   await fsPromises.writeFile("./data/tasks.json", JSON.stringify(newTasks));
 };
@@ -43,9 +43,15 @@ export const unassignTask = async (taskId) => {
   const tasks = await getTasks();
   const newTasks = tasks.map((task) => {
     if (task.id === taskId) {
-      delete task.assignedTo;
+      delete task.assignee;
     }
     return task;
   });
   await fsPromises.writeFile("./data/tasks.json", JSON.stringify(newTasks));
+};
+
+export const getMyTasks = async (username) => {
+  const tasks = await getTasks();
+  const myTasks = tasks.filter((task) => task.assignee === username);
+  return myTasks;
 };

@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import { registerUser, loginUser, getUserProfile } from "../module/users.js";
 import { postDataHandler } from "../postDataHandler.js";
 
-const JWT_SECRET = "secret_task_manager";
+const secretKey = process.env.SECRET_KEY;
 
 const routeUsersApis = async (req, res) => {
   let body = "";
@@ -17,8 +17,23 @@ const routeUsersApis = async (req, res) => {
   };
 
   if (req.url === "/register" && req.method === "POST") {
-    const { username, password } = JSON.parse(body);
-    const result = await registerUser(username, password);
+    const { username, password, email } = JSON.parse(body || "{}");
+
+    if (!username || !password || !email) {
+      sendResponse(
+        { error: "Parameter validation failed. Check your request data." },
+        400
+      );
+      return;
+    }
+
+    const result = await registerUser(username, password, email);
+    sendResponse(result, result.status);
+  } else if (req.url.startsWith("/verifyEmail") && req.method === "GET") {
+    const urlParams = new URL(req.url, `http://${req.headers.host}`);
+    const token = urlParams.searchParams.get("token");
+
+    const result = await verifyEmail(token);
     sendResponse(result, result.status);
   } else if (req.url === "/login" && req.method === "POST") {
     const { username, password } = JSON.parse(body);
@@ -34,8 +49,8 @@ const routeUsersApis = async (req, res) => {
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      const result = getUserProfile(decoded.id);
+      const decoded = jwt.verify(token, secretKey);
+      const result = await getUserProfile(decoded.id);
       sendResponse(result, result.status);
     } catch (err) {
       sendResponse({ error: "Invalid or expired token" }, 403);
